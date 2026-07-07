@@ -2,7 +2,7 @@ import uuid
 import os
 import shutil
 from datetime import datetime
-from models import Item, Database
+from models import Item, User, Database
 from utils import validate_email, validate_phone, hash_password, check_password
 
 
@@ -77,6 +77,8 @@ def _handle_image_upload(db, item_id):
     except Exception as e:
         print(f"Error saving image: {e}")
         return None
+
+
 def search_items(db):
     """Search items by keyword, category, or location."""
     print("\n--- Search Items ---")
@@ -134,11 +136,101 @@ def update_status(db):
     print("Item not found.")
 
 
+def register_user(db):
+    """Register a new user."""
+    print("\n--- Register ---")
+    username = input("Username: ").strip()
+    email = input("Email: ").strip()
+    phone = input("Phone: ").strip()
+    password = input("Password: ").strip()
+
+    if not validate_email(email):
+        print("Invalid email.")
+        return None
+    if not validate_phone(phone):
+        print("Invalid phone number.")
+        return None
+
+    users = db.load_users()
+    if any(u.email == email for u in users):
+        print("Email already registered.")
+        return None
+
+    user = User(
+        user_id=str(uuid.uuid4())[:8],
+        username=username,
+        email=email,
+        phone=phone,
+        password_hash=hash_password(password)
+    )
+    users.append(user)
+    db.save_users(users)
+    print("Registration successful!")
+    return user
+
+
+def login_user(db):
+    """Log in an existing user."""
+    print("\n--- Login ---")
+    email = input("Email: ").strip()
+    password = input("Password: ").strip()
+
+    users = db.load_users()
+    for user in users:
+        if user.email == email and check_password(password, user.password_hash):
+            print(f"Welcome, {user.username}!")
+            return user
+    print("Invalid credentials.")
+    return None
+
+
+def login_menu(db):
+    """Display login/register menu and return logged-in user."""
+    while True:
+        print("\n1. Login\n2. Register\n3. Continue as guest")
+        choice = input("Choice: ").strip()
+        if choice == "1":
+            user = login_user(db)
+            if user:
+                return user
+        elif choice == "2":
+            user = register_user(db)
+            if user:
+                return user
+        elif choice == "3":
+            return None
+        else:
+            print("Invalid choice.")
+
+
+def contact_owner(db):
+    """Display contact info of the item's owner."""
+    print("\n--- Contact Owner ---")
+    item_id = input("Enter item ID: ").strip()
+
+    items = db.load_items()
+    users = db.load_users()
+
+    for item in items:
+        if item.item_id == item_id:
+            for user in users:
+                if user.user_id == item.posted_by:
+                    print(f"\nPosted by: {user.username}")
+                    print(f"Email: {user.email}")
+                    print(f"Phone: {user.phone}")
+                    return
+            print("Owner details not found.")
+            return
+    print("Item not found.")
+
+
 def main():
     db = Database()
     print("=" * 40)
     print("   LOST & FOUND ITEM TRACKER")
     print("=" * 40)
+    
+    current_user = login_menu(db)
     
     while True:
         print("\n--- Menu ---")
@@ -146,12 +238,12 @@ def main():
         print("2. View All Items")
         print("3. Search Items")
         print("4. Update Status")
-        print("5. Exit")
-
+        print("5. Contact Owner")
+        print("6. Exit")
         choice = input("Choice: ").strip()
         
         if choice == "1":
-            post_item(db, current_user=None)
+            post_item(db, current_user=current_user.user_id if current_user else None)
         elif choice == "2":
             view_all_items(db)
         elif choice == "3":
@@ -159,6 +251,8 @@ def main():
         elif choice == "4":
             update_status(db)
         elif choice == "5":
+            contact_owner(db)
+        elif choice == "6":
             print("Goodbye!")
             break
         else:
