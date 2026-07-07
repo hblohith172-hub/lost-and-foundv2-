@@ -77,6 +77,61 @@ def _handle_image_upload(db, item_id):
     except Exception as e:
         print(f"Error saving image: {e}")
         return None
+def search_items(db):
+    """Search items by keyword, category, or location."""
+    print("\n--- Search Items ---")
+    print("1. Search by keyword")
+    print("2. Search by category")
+    print("3. Search by location")
+    choice = input("Choice: ").strip()
+
+    items = db.load_items()
+    results = []
+
+    if choice == "1":
+        keyword = input("Enter keyword: ").strip().lower()
+        results = [i for i in items if keyword in i.title.lower()
+                   or keyword in i.description.lower()]
+    elif choice == "2":
+        category = input("Enter category: ").strip().lower()
+        results = [i for i in items if i.category.lower() == category]
+    elif choice == "3":
+        location = input("Enter location: ").strip().lower()
+        results = [i for i in items if location in i.location.lower()]
+    else:
+        print("Invalid choice.")
+        return
+
+    if not results:
+        print("No matching items found.")
+        return
+
+    print(f"\nFound {len(results)} item(s):")
+    for item in results:
+        print(f"  [{item.item_id}] {item.title} — {item.status}")
+
+
+def update_status(db):
+    """Update the status of an existing item."""
+    print("\n--- Update Item Status ---")
+    item_id = input("Enter item ID: ").strip()
+
+    items = db.load_items()
+    for item in items:
+        if item.item_id == item_id:
+            print(f"Current status: {item.status}")
+            print("1. lost\n2. found\n3. resolved")
+            new_status = input("New status: ").strip()
+            status_map = {"1": "lost", "2": "found", "3": "resolved"}
+            if new_status in status_map:
+                item.status = status_map[new_status]
+                db.save_items(items)
+                print(f"Status updated to '{item.status}'")
+                return
+            else:
+                print("Invalid status.")
+                return
+    print("Item not found.")
 
 
 def main():
@@ -89,7 +144,10 @@ def main():
         print("\n--- Menu ---")
         print("1. Post Item")
         print("2. View All Items")
-        print("3. Exit")
+        print("3. Search Items")
+        print("4. Update Status")
+        print("5. Exit")
+
         choice = input("Choice: ").strip()
         
         if choice == "1":
@@ -97,6 +155,10 @@ def main():
         elif choice == "2":
             view_all_items(db)
         elif choice == "3":
+            search_items(db)
+        elif choice == "4":
+            update_status(db)
+        elif choice == "5":
             print("Goodbye!")
             break
         else:
